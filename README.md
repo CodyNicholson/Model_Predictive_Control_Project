@@ -2,7 +2,58 @@
 
 In this project I created a Model Predictive Controller (MPC) to simulate different actuator inputs, predict the resulting trajectory, and select the trajectory with a minimum cost. The enables the car to turn in the most efficient and safe way.
 
----
+***
+
+### Project Writeup
+
+#### The Model - Student describes their model in detail. This includes the state, actuators and update equations.
+
+My model loops through the process of combining the actuation & state from the previous timestep to calculate the state for the current timestep. It does this over and over to correct the cross-track error and psi error. The model uses the vehicles **x** and **y** coordinates, the **orientation angle**, and the **velocity** to do this. These are the equations used:
+
+![alt tag](https://github.com/CodyNicholson/Self-Driving_Car_Nanodegree/blob/master/26_Model_Predictive_Control/imgs/mpc.PNG)
+
+#### Timestep Length and Elapsed Duration (N & dt) - Student discusses the reasoning behind the chosen N (timestep length) and dt (elapsed duration between timesteps) values. Additionally the student details the previous values tried.
+
+I had some trouble choosing my values for **N** and **dt**. I tried guessing at it for a while, but every time I thought I was getting closer to correct values something would go wrong. After reading through the forums and watching the project help video on the Udacity YouTube channel, I was encouraged to use the value 10 for **N** and 0.1 for **dt**. Given these values, the optimizer will have a 1 second duration to determine the correct trajectory for the car to use.
+
+#### Polynomial Fitting and MPC Preprocessing - A polynomial is fitted to waypoints. If the student preprocesses waypoints, the vehicle state, and/or actuators prior to the MPC procedure it is described.
+
+I preprocessed the waypoints by transforming them to the vehicle's perspective. This  simplifies the process of fitting a polynomial to the waypoints since the vehicle's **x** and **y** coordinates are now at the origin, and the **orientation angle** is zero. You can see the code I used to do this below:
+
+```c++
+// Transform waypoints to be from vehicle perspective
+for (int i = 0; i < ptsx.size(); i++) {
+  double d_x = ptsx[i] - px;
+  double d_y = ptsy[i] - py;
+  waypoints_x.push_back(d_x * cos(-psi) - d_y * sin(-psi));
+  waypoints_y.push_back(d_x * sin(-psi) + d_y * cos(-psi));
+}
+```
+
+#### Model Predictive Control with Latency - The student implements Model Predictive Control that handles a 100 millisecond latency. Student provides details on how they deal with latency.
+
+To deal with the latency I modified the original kinematic equation to account for the delay of 100ms that caused the actuations to be applied another timestep later. My modifications to the equation can be found in the code below:
+
+```c++
+      if (t > 1)
+      {
+        a = vars[a_start + t - 2];
+        delta = vars[delta_start + t - 2];
+      }
+```
+
+I created a cost function to penalize the combination of **velocity** and **delta**, as seen in the last line of the body of the for-loop in the code below. This made my turns a bit more smooth. I also implemented the suggested cost functions found in the lessons.
+
+```c++
+    for (int i = 0; i < N - 1; i++)
+    {
+      fg[0] += 5*CppAD::pow(vars[delta_start + i], 2);
+      fg[0] += 5*CppAD::pow(vars[a_start + i], 2);
+      fg[0] += 700*CppAD::pow(vars[delta_start + i] * vars[v_start+i], 2);
+    }
+```
+
+***
 
 ## Dependencies
 
