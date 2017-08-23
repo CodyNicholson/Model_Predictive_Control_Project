@@ -32,26 +32,13 @@ for (int i = 0; i < ptsx.size(); i++) {
 
 #### Model Predictive Control with Latency - The student implements Model Predictive Control that handles a 100 millisecond latency. Student provides details on how they deal with latency.
 
-To deal with the latency I modified the original kinematic equation to account for the delay of 100ms that caused the actuations to be applied another timestep later. My modifications to the equation can be found in the code below:
+In a real car, an actuation command won't execute instantly - there will be a delay as the command propagates through the system. A realistic delay might be on the order of 100 milliseconds.
 
-```c++
-      if (t > 1)
-      {
-        a = vars[a_start + t - 2];
-        delta = vars[delta_start + t - 2];
-      }
-```
+This is a problem called latency, and it's a difficult challenge for some controllers - like a PID controller - to overcome. But a Model Predictive Controller can adapt quite well because we can model this latency in the system.
 
-I created a cost function to penalize the combination of **velocity** and **delta**, as seen in the last line of the body of the for-loop in the code below. This made my turns a bit more smooth. I also implemented the suggested cost functions found in the lessons.
+A contributing factor to latency is actuator dynamics. For example the time elapsed between when you command a steering angle to when that angle is actually achieved. This could easily be modeled by a simple dynamic system and incorporated into the vehicle model. One approach would be running a simulation using the vehicle model starting from the current state for the duration of the latency. The resulting state from the simulation is the new initial state for MPC.
 
-```c++
-    for (int i = 0; i < N - 1; i++)
-    {
-      fg[0] += 5*CppAD::pow(vars[delta_start + i], 2);
-      fg[0] += 5*CppAD::pow(vars[a_start + i], 2);
-      fg[0] += 700*CppAD::pow(vars[delta_start + i] * vars[v_start+i], 2);
-    }
-```
+My algorithm evaluates the vehicle's state 100ms into the future before calling the MPC solver function. Since the state variables are computed in vehicle coordinate system, the kinematic equations could be used to estimate the state of the vehicle 100ms in the future. This can be done using the update equations and model error equations described in the lessons. In vehicle coordinates, the vehicle is at the origin and so **px**, **py** and **psi** are considered as zero and substituting these values into kinematic equations with **dt**=0.1 will give the state and errors 100ms into the future.
 
 ***
 
